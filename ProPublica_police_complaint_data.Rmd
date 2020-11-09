@@ -1,6 +1,6 @@
 ---
 title: "ProPublica police complaint data"
-author: "JUMMY OWOOKADE, SUSANNAH OUTHIER, SPENCER DOBKIN, SARA CHERNIKOFF" 
+author: "JUMMY OWOOKADE,  SUSANNAH OUTHIER, SPENCER DOBKIN, SARA CHERNIKOFF" 
 date: "10/20/2020"
 output: 
   html_document:
@@ -38,8 +38,6 @@ The data in this notebook is 35 years of NYPD complaints from New York City Civi
 Each record in the data includes: the name, shield number,rank and precinct of each officer (as of today and at the time of the incident); the time of the incident; the age, race and gender of the complainant and the officer; a description of the alleged misconduct; and the CCRB ruling
 
 In this data, CCRB rulings are characterized as either Exonerated, Substantiated or Unsubstantiated.
-
-* first_name | character | name of officer
 
 ```{r}
 # Read in data 
@@ -128,9 +126,9 @@ McCormack_discrete_complaints <- allegations_NYPD %>%
 McCormack_discrete_complaints
 
 ```
+```{r}
 #We are sorting through the different types of board investigations and the outcomes of them. We are showing just the outcomes of investigations of board_disposition and showed how many total were made.
 
-```{r}
 McCormack_board_disposition <- allegations_NYPD %>%
   select(last_name, first_name, allegation, board_disposition) %>%
   filter(last_name == "Mccormack" & first_name == "Christophe") %>%
@@ -154,11 +152,12 @@ x <- allegations_NYPD %>%
 x
 
 ```
+
 ### Question 3
 
 Question 3: Eighty-six of the roughly 420 officers in the department who currently hold a rank above captain — running precincts and other large commands and overseeing hundreds of officers — have tallied at least one misconduct allegation that was substantiated by the CCRB, meaning that investigators amassed enough evidence of offenses, ranging from bad language to pistol whippings, to say that they happened and broke patrol guidelines. The most common involved improper property entries and searches.
 
-#Note: Able to reproduce 81, but not 86
+#Note: Able to reproduce 81, but not 86.
 
 ```{r}
 #Here we created a new string to show the different ranks in the NYPD, and grouped the data by their current ranks.
@@ -195,7 +194,7 @@ Above_inspector_ranking_misconduct
 
 #  The mutate function, using the tolower function also, cleans the data in our allegation category, making it easier to further categorize.
 
-#  The next mutate function is categorizing the category of the allegations into either "search" or "other".
+#  The next mutate function is categorizing the category of the allegations into a few categories: search, force, process, verbal abuse and other.
 
 above_captain_cause <- allegations_NYPD %>%
   select(last_name, first_name, unique_mos_id, shield_no, rank_now, allegation, board_disposition) %>%
@@ -207,41 +206,61 @@ above_captain_cause <- allegations_NYPD %>%
   arrange(desc(n)) %>%
   mutate(allegation = tolower(allegation)) %>%
   mutate(allegation_category = case_when(
-    allegation == "Premises entered and/or searched" ~ "search",
-    allegation == "Word" ~ "other",
-    str_detect(allegation, "search") ~ "search",
-    # PUT IN MORE CODE TO CATEGORIZE DIFFERNT THINGS. KEEP ADDING INSIDE CASE WHEN STATEMENT
+    str_detect(allegation, "search|frisk") ~ "search",
+    str_detect(allegation, "punch|force|push|damaged|dragged|club|beat|pepper") ~ "force",
+    str_detect(allegation,"retaliatory|stop|arrest|refusal|action|detention|property|question") ~ "process",
+    str_detect(allegation, "word|abuse|curse|tone|discourtesy") ~ "verbal abuse",
     TRUE ~ "other"
-  ))
+   )) %>% 
+ group_by(allegation_category) %>%
+  summarise(total = sum(n)) %>%
+arrange(desc(total))
+
 
 above_captain_cause
+
+# This function shows complaints grouped by allegation rather than allegation_category.
+
+above_captain_cause_2 <- allegations_NYPD %>%
+  select(last_name, first_name, unique_mos_id, shield_no, rank_now, allegation, board_disposition) %>%
+  mutate(board_disposition = str_sub(board_disposition, start= 1L, end=13L)) %>%
+  filter(rank_now == "Inspector"| rank_now == "Deputy Inspector" | rank_now=="Chiefs and other ranks") %>%
+  filter(board_disposition == "Substantiated") %>%
+  group_by(allegation) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  mutate(allegation = tolower(allegation)) %>%
+  mutate(allegation_category = case_when(
+    str_detect(allegation, "search|frisk") ~ "search",
+    str_detect(allegation, "punch|force|push|damaged|dragged|club|beat|pepper") ~ "force",
+    str_detect(allegation,"retaliatory|stop|arrest|refusal|action|detention|property|question") ~ "process",
+    str_detect(allegation, "word|abuse|curse|tone|discourtesy") ~ "verbal abuse",
+    TRUE ~ "other"
+   )) %>% 
+  
+  group_by(allegation) %>%
+ count() %>%
+arrange(desc(n))
+
+above_captain_cause_2
+
 
 ```
 ### Question 4
 Question 4: The story focused on Christopher McCormack. Use data analysis to justify that decision. Why does he stand out as newsworthy, from all of the people they could have selected?
-
 ```{r}
-# Has higher statistics, more allegations against him than others. 
+# When the allegations made by individuals of only a higher rank are examined and labeled by last name and listed from the highest to lowest number of accusations made by people of color (black and hispanic), mcCormack's name comes up second.
 
-#MOS_ID | First_name | last_name | count_allegations
-#Sorted highest to lowest on count_allegations
-
-Ranked_evidence_allegations_NYPD <- allegations_NYPD %>%
+Total_allegations_NYPD <- allegations_NYPD %>%
+  select(last_name, complainant_ethnicity, allegation, rank_now, board_disposition) %>%
+   filter(rank_now == "Inspector"| rank_now == "Deputy Inspector" | rank_now =="Chiefs and other ranks")%>%
+  filter(complainant_ethnicity == "Black"|complainant_ethnicity== "Hispanic")%>%
   group_by(last_name) %>%
   count()%>%
   arrange(desc(n))
 
-Ranked_evidence_allegations_NYPD
-
-Total_allegations_NYPD <- allegations_NYPD %>%
-  select(last_name, complainant_ethnicity, allegation, rank_now, board_disposition) %>%
-  filter(rank_now == "Inspector" | rank_now == "Deputy Inspector" | rank_now == "Chiefs and other ranks")%>%
-  filter(complainant_ethnicity == "Black" | complainant_ethnicity == "Hispanic")%>%
-  arrange(complainant_ethnicity)
 
 Total_allegations_NYPD
-# Amongst high ranking people, does he have a lot of allegations. 
-# Does he have a high rate of substantiated complaints relative to others. 
-# Does he stand out in terms of complaints by people who are black or hispanic. 
 
+# Mccormack has the second highest number of allegations against him by black and hispanic individuals amongst high ranking officers.
 ```
